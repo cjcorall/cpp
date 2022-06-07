@@ -1,0 +1,8 @@
+x64/
+assimp-vc140-mt.dll
+RenderEngine.vcxproj
+RenderEngine.vcxproj.filters
+RenderEngine.vcxproj.user
+glad.c
+glew.c
+Makefile
