@@ -691,37 +691,3 @@ void renderCube()
     glDrawArrays(GL_TRIANGLES, 0, 36);
     glBindVertexArray(0);
 }
-//Object Outline
-/*
-glEnable(GL_STENCIL_TEST);
-glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-
-glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-glStencilFunc(GL_ALWAYS, 1, 0xFF);
-glStencilMask(0xFF);
-
-backpack.draw(shader);
-
-shader_flat->use();
-shader_flat->setMatrix("mat_view", camera->getView());
-shader_flat->setMatrix("mat_proj", camera->getProjection());
-
-model = glm::mat4(1.0f);
-
-model = glm::scale(model, glm::vec3(1.02f, 1.02f, 1.02f));
-model = glm::translate(model, obj_positions[i]);
-model = glm::rotate(model, glm::radians(-angle), glm::vec3(0.0f, 1.0f, 0.0f));
-
-shader_flat->setMatrix("mat_model", model);
-
-glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-glStencilMask(0x00);
-glDisable(GL_DEPTH_TEST);
-
-backpack.draw(shader_flat);
-
-glStencilMask(0xFF);
-glStencilFunc(GL_ALWAYS, 1, 0xFF);
-glEnable(GL_DEPTH_TEST);
-*/
