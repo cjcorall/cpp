@@ -3,6 +3,7 @@ assimp-vc140-mt.dll
 RenderEngine.vcxproj
 RenderEngine.vcxproj.filters
 RenderEngine.vcxproj.user
+RenderEngine.cpp
 glad.c
 glew.c
 Makefile
