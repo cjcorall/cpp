@@ -324,7 +324,7 @@ int main() {
 
     unsigned int wood_texture = loadTexture("obj/wood_texture.png");
 
-    // render loop
+    // render looping
     while (!glfwWindowShouldClose(window))
     {
         // input
