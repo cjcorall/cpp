@@ -185,6 +185,12 @@ glm::vec3 Model::getPosition() {
 	return this->_position;
 }
 
+void Model::move(glm::vec3 offset) {
+	glm::vec3 old_pos = this->getPosition();
+	glm::vec3 new_pos = old_pos + offset;
+	this->setPosition(new_pos);
+}
+
 void Model::setColor(glm::vec3 color) {
 	this->_color = color;
 }

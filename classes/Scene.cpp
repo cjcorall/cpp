@@ -103,6 +103,7 @@ void Scene::prepareLights(std::string shader_id) {
 void Scene::renderModels() {
 	auto model_iter = this->models.begin();
 	while (model_iter != this->models.end()) {
+
 		Shader* shader = this->getAssignedShader(model_iter->first);
 		shader->use();
 		shader->setInt("material.diffuse", 0);
@@ -115,13 +116,14 @@ void Scene::renderModels() {
 		model = glm::translate(model, model_iter->second->getPosition());
 		model = glm::scale(model, model_iter->second->getScale());
 		shader->setMatrix("mat_model", model);
+
 		model_iter->second->draw(*shader);
 		++model_iter;
 	}
 }
 void Scene::renderScene() {
 	this->updateCameras();
-	this->renderModels();
+	//this->renderModels();
 }
 
 void Scene::addModel(std::string id, std::string path) {

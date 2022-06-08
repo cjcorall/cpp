@@ -33,6 +33,7 @@ class Model {
 		void unbindArrayBuffer();
 		void setPosition(glm::vec3 pos);
 		glm::vec3 getPosition();
+		void move(glm::vec3 offset);
 		void setColor(glm::vec3 color);
 		glm::vec3 getColor();
 		void setScale(glm::vec3 scale);

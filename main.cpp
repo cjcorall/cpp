@@ -7,6 +7,8 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "classes/stb_image.h"
 
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <vector>
 #include <filesystem>
 #include <iostream>
@@ -80,8 +82,9 @@ int main() {
     // build and compile our shader program
     
     scene.addShader("standard", "shaders/vertex_standard.glsl", "shaders/fragment_standard.glsl");
-    scene.addShader("light", "shaders/vertex_light.glsl", "shaders/fragment_light.glsl");
-    scene.addShader("flat", "shaders/vertex_flat.glsl", "shaders/fragment_flat.glsl");
+    Shader* shader_standard = scene.getShader("standard");
+    //scene.addShader("light", "shaders/vertex_light.glsl", "shaders/fragment_light.glsl");
+    //scene.addShader("flat", "shaders/vertex_flat.glsl", "shaders/fragment_flat.glsl");
     scene.addShader("quad", "shaders/vertex_quad.glsl", "shaders/fragment_quad.glsl");
     scene.addShader("skybox", "shaders/vertex_skybox.glsl", "shaders/fragment_skybox.glsl");
     scene.addShader("depth", "shaders/vertex_depth.glsl", "shaders/fragment_depth.glsl");
@@ -128,18 +131,28 @@ int main() {
         -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f,
         -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f
     };
-
+    /*
     scene.addModel("gun", "obj/cube.obj");
-    scene.getModel("gun")->setPosition(glm::vec3(0.0f, 1.2f, 0.0f));
-    scene.getModel("gun")->setScale(glm::vec3(0.5f));
+    scene.getModel("gun")->setPosition(glm::vec3(0.0f, 0.35f, 0.0f));
+    scene.getModel("gun")->setScale(glm::vec3(0.25f));
     scene.getModel("gun")->setColor(glm::vec3(0.4f));
-    scene.assignShader("gun", "standard");
+    //scene.assignShader("gun", "depth");
 
     scene.addModel("floor", "obj/plane.obj");
     scene.getModel("floor")->setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
     scene.getModel("floor")->setScale(glm::vec3(5.0f));
     scene.getModel("floor")->setColor(glm::vec3(1.0f));
-    scene.assignShader("floor", "standard");
+    //scene.assignShader("floor", "depth");
+    
+    
+    scene.addModel("plight", "obj/cube.obj");
+    Model* plight = scene.getModel("plight");
+    plight->setColor(glm::vec3(1.0f, 1.0f, 1.0f));
+    plight->setPosition(glm::vec3(-0.05f, 0.8f, 0.0f));
+    plight->setScale(glm::vec3(0.1f));
+    //scene.assignShader("plight", "depth");
+    */
+
     
 
     //Positions Array
@@ -155,20 +168,20 @@ int main() {
     glm::vec3 plight_positions[] = {
         glm::vec3(0.0f,0.0f,-3.0f),
         glm::vec3(1.0f,2.0f,-1.0f),
-        glm::vec3(-1.0f,-2.5f,1.0f),
+        glm::vec3(-1.0f,3.5f,1.0f),
         glm::vec3(0.0f,0.0f,1.5f)
     };
 
     glm::vec3 plight_diffuse[] = {
-        glm::vec3(0.15f,0.15f,0.15f),
-        glm::vec3(0.15f,0.15f,0.15f),
-        glm::vec3(0.05f,0.05f,0.25f),
-        glm::vec3(0.15f,0.25f,0.35f)
+        glm::vec3(0.05f,0.15f,0.15f),
+        glm::vec3(0.15f,0.15f,0.05f),
+        glm::vec3(0.05f,0.05f,0.05f),
+        glm::vec3(0.15f,0.15f,0.15f)
     };
 
 
     //Light inputs
-    scene.addDirectionalLight("main", glm::vec3(0.1f, -4.0f, -1.5f), glm::vec3(0.15f), glm::vec3(0.05f), glm::vec3(1.0f));
+    scene.addDirectionalLight("main", glm::vec3(0.1f, -1.0f, -0.5f), glm::vec3(0.15f), glm::vec3(0.05f), glm::vec3(1.0f));
 
     for (int i = 0; i < 4; i++) {
         std::stringstream ss;
@@ -178,13 +191,6 @@ int main() {
         //char obj_path[] = "obj/cube.obj";
         
     }
-
-    scene.addModel("plight", "obj/cube.obj");
-    Model* plight = scene.getModel("plight");
-    plight->setColor(glm::vec3(1.0f, 1.0f, 1.0f));
-    plight->setScale(glm::vec3(0.1f));
-    plight->setPosition(glm::vec3(0.0f, -0.65f, 0.0f));
-    scene.assignShader("plight", "standard");
 
     float light_phi = glm::cos(glm::radians(15.0f));
     float light_gamma = glm::cos(glm::radians(30.0f));
@@ -248,13 +254,10 @@ int main() {
 
     glBindVertexArray(0);
     
-    shader_quad->use();
-    shader_quad->setInt("depthMapTexture", 0);
-    
     unsigned int depthMapFBO;
     glGenFramebuffers(1, &depthMapFBO);
 
-    const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+    const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
 
     unsigned int depthMapTexture;
     glGenTextures(1, &depthMapTexture);
@@ -262,8 +265,10 @@ int main() {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMapTexture, 0);
@@ -293,142 +298,183 @@ int main() {
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
     unbindVertexArrays();
 
-    float planeVertices[] = {
-        // positions            // normals         // texcoords
-         25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,  25.0f,  0.0f,
-        -25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,   0.0f,  0.0f,
-        -25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,   0.0f, 25.0f,
-
-         25.0f, -0.5f,  25.0f,  0.0f, 1.0f, 0.0f,  25.0f,  0.0f,
-        -25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,   0.0f, 25.0f,
-         25.0f, -0.5f, -25.0f,  0.0f, 1.0f, 0.0f,  25.0f, 25.0f
-    };
-    // plane VAO
-    unsigned int planeVBO;
-    glGenVertexArrays(1, &planeVAO);
-    glGenBuffers(1, &planeVBO);
-    glBindVertexArray(planeVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(planeVertices), planeVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glBindVertexArray(0);
-
-
     glEnable(GL_DEPTH_TEST);
 
+    glm::vec3 light_pos = glm::vec3(-0.0000001f, 4.0f, 1.0f);
+    float near_plane = 1.0f, far_plane = 20.5f;
+    
+    Model gun("obj/p226.obj");
+    gun.setPosition(glm::vec3(0.0f, 1.0f, 0.0f));
+    gun.setScale(glm::vec3(3.5f));
+    gun.setColor(glm::vec3(0.5f));
 
-    unsigned int wood_texture = loadTexture("obj/wood_texture.png");
+    Model cube("obj/cube.obj");
+    cube.setPosition(glm::vec3(0.0f, 1.5f, 0.0f));
+    cube.setScale(glm::vec3(0.1f));
 
+    Model floor("obj/plane.obj");
+    floor.setPosition(glm::vec3(0.0f));
+    floor.setScale(glm::vec3(2.0f, 1.0f, 2.0f));
+
+    glm::mat4 model = glm::mat4(1.0f);
+    float angle = 0.0f;
+    float dx = 0.0f;
+    float dz = 0.0f;
+    float radius = 0.2f;
+    
     // render looping
     while (!glfwWindowShouldClose(window))
     {
         // input
         
-        
+        dx = cos(angle * (float)M_PI / 180.0f) * radius;
+        dz = sin(angle * (float)M_PI / 180.0f) * radius;
+        angle += 0.1f;
+        cube.setPosition(glm::vec3(dx, 1.5f, dz));
+        //cube.setScale(glm::vec3(std::abs(dx * 1.2f)));
+
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        float near_plane = 1.0f, far_plane = 7.5f;
         glm::mat4 light_proj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
-        glm::mat4 light_view = glm::lookAt(glm::vec3(-2.0f, 4.0f, -1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 light_mat = light_proj * light_view;
-        
-        shader_depth->use();
-        shader_depth->setMatrix("lightSpaceMatrix", light_mat);
+        glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 mat_light = light_proj * light_view;
 
-        //Capture shadow mappings
         
+        //Capture shadow map
+        glCullFace(GL_FRONT);
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
         glClear(GL_DEPTH_BUFFER_BIT);
-        glActiveTexture(GL_TEXTURE0);
-        //glBindTexture(GL_TEXTURE_2D, wood_texture);
-        //renderScene(shader_depth);
 
-        scene.assignShader("gun", "depth");
-        scene.assignShader("floor", "depth");
-        scene.assignShader("plight", "depth");
-        scene.prepareShaders();
+        shader_depth->use();
+        shader_depth->setMatrix("mat_light", mat_light);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, floor.getPosition());
+        model = glm::scale(model, floor.getScale());
+        shader_depth->setMatrix("mat_model", model);
+        floor.draw(*shader_depth);
 
-        scene.renderScene();
+        shader_depth->use();
+        shader_depth->setMatrix("mat_light", mat_light);
+        model = glm::translate(model, gun.getPosition());
+        model = glm::scale(model, gun.getScale());
+        shader_depth->setMatrix("mat_model", model);
+        gun.draw(*shader_depth);
 
+        shader_depth->use();
+        shader_depth->setMatrix("mat_light", mat_light);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, cube.getPosition());
+        model = glm::scale(model, cube.getScale());
+        shader_depth->setMatrix("mat_model", model);
+        cube.draw(*shader_depth);
+
+        glCullFace(GL_BACK);
+        //scene.renderScene();
+        
+
+        //Set up standard render
+        glBindFramebuffer(GL_FRAMEBUFFER,0);
+        
+        
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+        glEnable(GL_DEPTH_TEST);
+
         processInput(window);
 
+        //Skybox render
 
-        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        scene.assignShader("gun", "standard");
-        scene.assignShader("floor", "standard");
-        scene.assignShader("plight", "light");
-
-        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glEnable(GL_DEPTH_TEST);
-        scene.getShader("standard")->use();
-        scene.getShader("standard")->setMatrix("lightSpaceMatrix", light_mat);
-        scene.getShader("standard")->setInt("shadowMap", 1);
-        scene.prepareShaders();
-        
         glDepthMask(GL_FALSE);
         shader_skybox->use();
         shader_skybox->setMatrix("mat_view", glm::mat4(glm::mat3(camera->getView())));
         shader_skybox->setMatrix("mat_proj", camera->getProjection());
-        
+
         glBindVertexArray(skyboxVAO);
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap_texture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glDepthMask(GL_TRUE);
         glBindVertexArray(0);
+
+        shader_standard->use();
+        shader_standard->setVector("cameraPos", camera->getPosition());
+        shader_standard->setMatrix("mat_view", camera->getView());
+        shader_standard->setMatrix("mat_proj", camera->getProjection());
+        shader_standard->setMatrix("mat_light", mat_light);
+        shader_standard->setVector("lightPos", light_pos);
+        shader_standard->setInt("material.diffuse", 0);
+        shader_standard->setInt("material.specular", 1);
+        shader_standard->setFloat("material.shininess", 256.0f);
+        scene.prepareLights("standard");
+
+        shader_standard->setInt("shadowMap", 2);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, depthMapTexture);
+
+        shader_standard->use();
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, floor.getPosition());
+        model = glm::scale(model, floor.getScale());
+        shader_standard->setMatrix("mat_model", model);
+        shader_standard->setInt("has_diffuse", (int)floor.hasDiffuse());
+        shader_standard->setInt("has_specular", (int)floor.hasSpecular());
+        shader_standard->setVector("output_color", floor.getColor());
+        floor.draw(*shader_standard);
+
+        shader_standard->use();
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, gun.getPosition());
+        model = glm::scale(model, gun.getScale());
+        shader_standard->setMatrix("mat_model", model);
+        shader_standard->setInt("has_diffuse", (int)gun.hasDiffuse());
+        shader_standard->setInt("has_specular", (int)gun.hasSpecular());
+        shader_standard->setVector("output_color", gun.getColor());
+        gun.draw(*shader_standard);
+
+        shader_standard->use();
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, cube.getPosition());
+        model = glm::scale(model, cube.getScale());
+        shader_standard->setMatrix("mat_model", model);
+        shader_standard->setInt("has_diffuse", (int)cube.hasDiffuse());
+        shader_standard->setInt("has_specular", (int)cube.hasSpecular());
+        shader_standard->setVector("output_color", cube.getColor());
+        cube.draw(*shader_standard);
+
+        scene.renderScene();
         
-        glActiveTexture(GL_TEXTURE1);
+        unbindVertexArrays();
+        
+        
+        
+        //Finish standard render
+        //scene.getShader("standard")->use();
+        /*
+        glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, depthMapTexture);
         scene.renderScene();
         
-        /*
-        // Render scene to quad texture
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glEnable(GL_DEPTH_TEST);
-
-        scene.prepareShaders();
-
-        glDepthMask(GL_FALSE);
-        shader_skybox->use();
-        shader_skybox->setMatrix("mat_view", glm::mat4(glm::mat3(camera->getView())));
-        shader_skybox->setMatrix("mat_proj", camera->getProjection());
-        
-        glBindVertexArray(skyboxVAO);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap_texture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glDepthMask(GL_TRUE);
-        glBindVertexArray(0);
-
-        scene.renderScene();
         unbindVertexArrays();
         */
-        unbindVertexArrays();
+
         //Final render to output quad
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        
+
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         shader_quad->use();
         glBindVertexArray(quadVAO);
-        glDisable(GL_DEPTH_TEST);
+        
         shader_quad->setFloat("near_plane", near_plane);
         shader_quad->setFloat("far_plane", far_plane);
         shader_quad->setInt("TBO", 0);
         glActiveTexture(GL_TEXTURE0);
-        
         glBindTexture(GL_TEXTURE_2D, TBO);
         
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -533,7 +579,7 @@ unsigned int loadTexture(std::string filename){
 	stbi_set_flip_vertically_on_load(1);
 	unsigned char* data = stbi_load(filename.c_str(), &width, &height, &num_components, 0);
 	if (data) {
-		GLenum format;
+		GLenum format = GL_RGB;
 		if (num_components == 1) {
 			format = GL_RED;
 		} else if (num_components == 3) {
@@ -559,135 +605,4 @@ unsigned int loadTexture(std::string filename){
 	}
 
 	return texture_id;
-}
-
-unsigned int quadVAO = 0;
-unsigned int quadVBO;
-void renderQuad()
-{
-    if (quadVAO == 0)
-    {
-        float quadVertices[] = {
-            // positions        // texture Coords
-            -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-             1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
-             1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        };
-        // setup plane VAO
-        glGenVertexArrays(1, &quadVAO);
-        glGenBuffers(1, &quadVBO);
-        glBindVertexArray(quadVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-    }
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
-}
-
-void renderScene(Shader* shader)
-{
-    // floor
-    glm::mat4 model_base = glm::mat4(1.0f);
-    shader->setMatrix("mat_model", model_base);
-    glBindVertexArray(planeVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    // cubes
-    model_base = glm::mat4(1.0f);
-    model_base = glm::translate(model_base, glm::vec3(0.0f, 1.5f, 0.0));
-    model_base = glm::scale(model_base, glm::vec3(0.5f));
-    shader->setMatrix("mat_model", model_base);
-    renderCube();
-    model_base = glm::mat4(1.0f);
-    model_base = glm::translate(model_base, glm::vec3(2.0f, 0.0f, 1.0));
-    model_base = glm::scale(model_base, glm::vec3(0.5f));
-    shader->setMatrix("mat_model", model_base);
-    renderCube();
-    model_base = glm::mat4(1.0f);
-    model_base = glm::translate(model_base, glm::vec3(-1.0f, 0.0f, 2.0));
-    model_base = glm::rotate(model_base, glm::radians(60.0f), glm::normalize(glm::vec3(1.0, 0.0, 1.0)));
-    model_base = glm::scale(model_base, glm::vec3(0.25));
-    shader->setMatrix("mat_model", model_base);
-    renderCube();
-}
-
-
-// renderCube() renders a 1x1 3D cube in NDC.
-// -------------------------------------------------
-unsigned int cubeVAO = 0;
-unsigned int cubeVBO = 0;
-void renderCube()
-{
-    // initialize (if necessary)
-    if (cubeVAO == 0)
-    {
-        float cube_vertices[] = {
-            // back face
-            -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
-             1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
-             1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, // bottom-right         
-             1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
-            -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
-            -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f, // top-left
-            // front face
-            -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
-             1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, // bottom-right
-             1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
-             1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
-            -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f, // top-left
-            -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
-            // left face
-            -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
-            -1.0f,  1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-left
-            -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
-            -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
-            -1.0f, -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-right
-            -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
-            // right face
-             1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
-             1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
-             1.0f,  1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-right         
-             1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
-             1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
-             1.0f, -1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-left     
-            // bottom face
-            -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
-             1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f, // top-left
-             1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
-             1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
-            -1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f, // bottom-right
-            -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
-            // top face
-            -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
-             1.0f,  1.0f , 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
-             1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f, // top-right     
-             1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
-            -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
-            -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f  // bottom-left        
-        };
-        glGenVertexArrays(1, &cubeVAO);
-        glGenBuffers(1, &cubeVBO);
-        // fill buffer
-        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(cube_vertices), cube_vertices, GL_STATIC_DRAW);
-        // link vertex attributes
-        glBindVertexArray(cubeVAO);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-    }
-    // render Cube
-    glBindVertexArray(cubeVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-    glBindVertexArray(0);
 }
