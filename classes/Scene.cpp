@@ -54,7 +54,7 @@ void Scene::prepareShaders() {
 }
 
 void Scene::prepareLights(std::string shader_id) {
-	
+
 	Shader* shader = this->getShader(shader_id);
 	std::stringstream ss;
 	std::string num;
@@ -103,27 +103,37 @@ void Scene::prepareLights(std::string shader_id) {
 void Scene::renderModels() {
 	auto model_iter = this->models.begin();
 	while (model_iter != this->models.end()) {
-
-		Shader* shader = this->getAssignedShader(model_iter->first);
-		shader->use();
-		shader->setInt("material.diffuse", 0);
-		shader->setInt("material.specular", 1);
-		shader->setFloat("material.shininess", 256.0f);
-		shader->setVector("output_color", model_iter->second->getColor());
-		shader->setInt("has_diffuse", (int)model_iter->second->hasDiffuse());
-		shader->setInt("has_specular", (int)model_iter->second->hasSpecular());
-		glm::mat4 model = glm::mat4(1.0f);
-		model = glm::translate(model, model_iter->second->getPosition());
-		model = glm::scale(model, model_iter->second->getScale());
-		shader->setMatrix("mat_model", model);
-
-		model_iter->second->draw(*shader);
+		this->renderModel(model_iter->first);
 		++model_iter;
 	}
 }
+
+void Scene::renderModel(std::string model_id) {
+	Shader* shader = this->getAssignedShader(model_id);
+	Model* model_obj = this->getModel(model_id);
+	shader->use();
+
+	shader->setInt("material.diffuse", 4);
+	shader->setInt("material.specular", 5);
+	shader->setInt("material.normal", 6);
+
+	shader->setFloat("shininess", 32.0f);
+	shader->setVector("output_color", model_obj->getColor());
+	shader->setInt("has_diffuse", (int)model_obj->hasDiffuse());
+	shader->setInt("has_specular", (int)model_obj->hasSpecular());
+	shader->setInt("has_normal", (int)model_obj->hasNormal());
+
+	glm::mat4 mat_model = glm::mat4(1.0f);
+	mat_model = glm::translate(mat_model, model_obj->getPosition());
+	mat_model = glm::rotate(mat_model, model_obj->getRotation().first, model_obj->getRotation().second);
+	mat_model = glm::scale(mat_model, model_obj->getScale());
+	shader->setMatrix("mat_model", mat_model);
+	model_obj->draw(*shader);
+}
+
 void Scene::renderScene() {
 	this->updateCameras();
-	//this->renderModels();
+	this->renderModels();
 }
 
 void Scene::addModel(std::string id, std::string path) {
@@ -168,11 +178,19 @@ PointLight* Scene::getPointLight(std::string id) {
 }
 
 void Scene::assignShader(std::string model_id, std::string shader_id) {
-	this->assigned_shaders.insert(std::make_pair(model_id, shader_id));
+	if (this->getAssignedShader(model_id) == NULL) {
+		this->assigned_shaders.insert(std::make_pair(model_id, shader_id));
+	} else {
+		this->assigned_shaders[model_id] = shader_id;
+	}
 }
 
 Shader* Scene::getAssignedShader(std::string model_id) {
-	return this->shaders[this->assigned_shaders[model_id]];
+	if (this->assigned_shaders.find(model_id) != this->assigned_shaders.end()) {
+		return this->shaders[this->assigned_shaders[model_id]];
+	} else {
+		return NULL;
+	}
 }
 
 void Scene::setActiveCamera(std::string id) {

@@ -24,19 +24,21 @@ void Model::unbindArrayBuffer() {
 
 void Model::loadModel(std::string path) {
 	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
+	const aiScene* scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 
 	this->has_diffuse = false;
 	this->has_specular = false;
+	this->has_normal = false;
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
 		std::cout << "Error::ASSIMP::" << importer.GetErrorString() << std::endl;
 		return;
 	}
 	directory = path.substr(0, path.find_last_of('/'));
-	
+
 	processNode(scene->mRootNode, scene);
 	this->setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+	this->setRotation(0.0f, glm::vec3(0.0f, 1.0f, 0.0f));
 	this->setColor(glm::vec3(0.5f, 0.5f, 0.5f));
 	this->setScale(glm::vec3(1.0f));
 }
@@ -71,6 +73,12 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		normal.z = mesh->mNormals[i].z;
 		vertex.normal = normal;
 
+		glm::vec3 tangent;
+		tangent.x = mesh->mTangents[i].x;
+		tangent.y = mesh->mTangents[i].y;
+		tangent.z = mesh->mTangents[i].z;
+		vertex.tangent = tangent;
+
 		if (mesh->mTextureCoords[0]) {
 
 			glm::vec2 tex_coords;
@@ -90,7 +98,7 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 			indices.push_back(face.mIndices[j]);
 		}
 	}
-	
+
 	if (mesh->mMaterialIndex >= 0) {
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 		std::vector<Texture> diffuse_maps = loadMaterialTextures(material, aiTextureType_DIFFUSE, "texture_diffuse");
@@ -101,8 +109,12 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 		curr_size = (int)textures.size();
 		textures.insert(textures.end(), specular_maps.begin(), specular_maps.end());
 		this->has_specular = (bool)(textures.size() > curr_size);
+		std::vector<Texture> normal_maps = loadMaterialTextures(material, aiTextureType_HEIGHT, "texture_normal");
+		curr_size = (int)textures.size();
+		textures.insert(textures.end(), normal_maps.begin(), normal_maps.end());
+		this->has_normal = (bool)(textures.size() > curr_size);
 	}
-	
+
 	return Mesh(vertices, indices, textures);
 }
 
@@ -116,7 +128,7 @@ std::vector<Texture> Model::loadMaterialTextures(aiMaterial* mat, aiTextureType 
 			if (std::strcmp(textures_loaded[j].path.data(), str.C_Str()) == 0) {
 				textures.push_back(textures_loaded[j]);
 				skip = true;
-				break; 
+				break;
 			}
 		}
 		if (!skip) {
@@ -137,6 +149,10 @@ bool Model::hasDiffuse() {
 
 bool Model::hasSpecular() {
 	return this->has_specular;
+}
+
+bool Model::hasNormal() {
+	return this->has_normal;
 }
 
 unsigned int TextureFromFile(const char* path, const std::string& directory, bool gamma) {
@@ -185,12 +201,6 @@ glm::vec3 Model::getPosition() {
 	return this->_position;
 }
 
-void Model::move(glm::vec3 offset) {
-	glm::vec3 old_pos = this->getPosition();
-	glm::vec3 new_pos = old_pos + offset;
-	this->setPosition(new_pos);
-}
-
 void Model::setColor(glm::vec3 color) {
 	this->_color = color;
 }
@@ -205,4 +215,12 @@ void Model::setScale(glm::vec3 scale) {
 
 glm::vec3 Model::getScale() {
 	return this->_scale;
+}
+
+void Model::setRotation(float angle, glm::vec3 axis) {
+	this->_rotation = std::make_pair(glm::radians(angle), axis);
+}
+
+std::pair<float, glm::vec3> Model::getRotation() {
+	return this->_rotation;
 }

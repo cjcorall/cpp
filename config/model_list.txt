@@ -1,0 +1,3 @@
+name	path	position	rotation	scale
+floor	obj/plane.obj	0.0 0.0 0.0	0.0 0.0 1.0 0.0	5.0 1.0 5.0
+wall	obj/p226.obj	0.0 2.0 0.0	90.0 0.0 0.0 1.0	5.0 5.0 5.0
