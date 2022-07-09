@@ -1,12 +1,12 @@
 #include "Shader.h"
 
 
-Shader::Shader(const char* vertex_path, const char* fragment_path) {
-	this->loadShaders(vertex_path, fragment_path);
+Shader::Shader(const char* vertex_path, const char* fragment_path, const char* geometry_path) {
+	this->loadShaders(vertex_path, fragment_path, geometry_path);
 	this->linkShaders();
 }
 
-void Shader::loadShaders(const char* vertex_path, const char* fragment_path) {
+void Shader::loadShaders(const char* vertex_path, const char* fragment_path, const char* geometry_path) {
 	std::string line;
 	std::stringstream ss;
 	std::ifstream vfile(vertex_path);
@@ -30,6 +30,21 @@ void Shader::loadShaders(const char* vertex_path, const char* fragment_path) {
 	glShaderSource(this->fragment_shader, 1, &(this->fragment_source), NULL);
 	glCompileShader(this->fragment_shader);
 
+	if (geometry_path != nullptr) {
+
+		ss.str("");
+		std::ifstream gfile(geometry_path);
+		while (std::getline(gfile, line)) {
+			ss << line << "\n";
+		}
+		std::string gsource = ss.str();
+
+		this->geometry_source = gsource.c_str();
+		this->geometry_shader = glCreateShader(GL_GEOMETRY_SHADER);
+		glShaderSource(this->geometry_shader, 1, &(this->geometry_source), NULL);
+		glCompileShader(this->geometry_shader);
+	}
+
 	int success;
 	char infoLog[512];
 	glGetShaderiv(this->vertex_shader, GL_COMPILE_STATUS, &success);
@@ -44,12 +59,25 @@ void Shader::loadShaders(const char* vertex_path, const char* fragment_path) {
 		glGetShaderInfoLog(this->fragment_shader, 512, NULL, infoLog);
 		std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
 	}
+	if (geometry_path != nullptr) {
+		// geometry shader
+		// check for shader compile errors
+		glGetShaderiv(this->geometry_shader, GL_COMPILE_STATUS, &success);
+		if (!success) {
+			glGetShaderInfoLog(this->geometry_shader, 512, NULL, infoLog);
+			std::cout << "ERROR::SHADER::GEOMETRY::COMPILATION_FAILED\n" << infoLog << std::endl;
+		}
+	}
 }
 
 void Shader::linkShaders() {
 	this->shader_program = glCreateProgram();
 	glAttachShader(this->shader_program, this->vertex_shader);
+	if (this->geometry_shader) {
+		glAttachShader(this->shader_program, this->geometry_shader);
+	}
 	glAttachShader(this->shader_program, this->fragment_shader);
+
 	glLinkProgram(this->shader_program);
 	// check for linking errors
 	int success;
@@ -61,6 +89,9 @@ void Shader::linkShaders() {
 	}
 	glDeleteShader(this->vertex_shader);
 	glDeleteShader(this->fragment_shader);
+	if (this->geometry_shader) {
+		glDeleteShader(this->geometry_shader);
+	}
 }
 
 unsigned int Shader::get() {

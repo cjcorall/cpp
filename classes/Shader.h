@@ -14,7 +14,7 @@
 
 class Shader {
 	public:
-		Shader(const char* vertex_path, const char* fragment_path);
+		Shader(const char* vertex_path, const char* fragment_path, const char* geometry_path = nullptr);
 		unsigned int get();
 		void use();
 		void setInt(const char* id, int i);
@@ -25,11 +25,13 @@ class Shader {
 	private:
 		const char* vertex_source;
 		const char* fragment_source;
+		const char* geometry_source;
 		unsigned int vertex_shader;
 		unsigned int fragment_shader;
+		unsigned int geometry_shader;
 		unsigned int shader_program;
 
-		void loadShaders(const char* vertex_path, const char* fragment_path);
+		void loadShaders(const char* vertex_path, const char* fragment_path, const char* geometry_path = nullptr);
 		void linkShaders();
 };
 

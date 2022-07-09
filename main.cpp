@@ -5,6 +5,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include "classes/stb_image.h"
 
 #define _USE_MATH_DEFINES
@@ -88,6 +90,7 @@ int main() {
     scene.addShader("quad", "shaders/vertex_quad.glsl", "shaders/fragment_quad.glsl");
     scene.addShader("skybox", "shaders/vertex_skybox.glsl", "shaders/fragment_skybox.glsl");
     scene.addShader("depth", "shaders/vertex_depth.glsl", "shaders/fragment_depth.glsl");
+    Shader* shader_depthcube = new Shader("shaders/vertex_depthcube.glsl", "shaders/fragment_depthcube.glsl", "shaders/geometry_depthcube.glsl");
     Shader* shader_quad = scene.getShader("quad");
     Shader* shader_skybox = scene.getShader("skybox");
     Shader* shader_depth = scene.getShader("depth");
@@ -153,7 +156,7 @@ int main() {
     //scene.assignShader("plight", "depth");
     */
 
-    
+    const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
     //Positions Array
     glm::vec3 obj_positions[] = {
@@ -166,14 +169,14 @@ int main() {
 
     //Point Light Values
     glm::vec3 plight_positions[] = {
-        glm::vec3(0.0f,0.0f,-3.0f),
-        glm::vec3(1.0f,2.0f,-1.0f),
-        glm::vec3(-1.0f,3.5f,1.0f),
-        glm::vec3(0.0f,0.0f,1.5f)
+        glm::vec3(0.0f,0.0f,0.0f),
+        glm::vec3(100.0f,0.0f,-3.0f),
+        glm::vec3(-100.0f,3.5f,1.0f),
+        glm::vec3(100.0f,0.0f,1.5f)
     };
 
     glm::vec3 plight_diffuse[] = {
-        glm::vec3(0.05f,0.15f,0.15f),
+        glm::vec3(0.65f,0.35f,0.35f),
         glm::vec3(0.15f,0.15f,0.05f),
         glm::vec3(0.05f,0.05f,0.05f),
         glm::vec3(0.15f,0.15f,0.15f)
@@ -188,8 +191,6 @@ int main() {
         ss << i;
         std::string pname = "plight_" + ss.str();
         scene.addPointLight(pname, plight_positions[i], glm::vec3(0.075f), plight_diffuse[i], glm::vec3(1.0f), 1.0f, 0.09f, 0.032f);
-        //char obj_path[] = "obj/cube.obj";
-        
     }
 
     float light_phi = glm::cos(glm::radians(15.0f));
@@ -253,75 +254,75 @@ int main() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
 
     glBindVertexArray(0);
+
+    glEnable(GL_DEPTH_TEST);
     
     unsigned int depthMapFBO;
     glGenFramebuffers(1, &depthMapFBO);
 
-    const unsigned int SHADOW_WIDTH = 2048, SHADOW_HEIGHT = 2048;
-
-    unsigned int depthMapTexture;
-    glGenTextures(1, &depthMapTexture);
-    glBindTexture(GL_TEXTURE_2D, depthMapTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    unsigned int depthMapCube;
+    glGenTextures(1, &depthMapCube);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, depthMapCube);
 
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMapTexture, 0);
+
+    for (unsigned int i = 0; i < 6; ++i) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    }
+
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthMapCube, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    
-    std::vector<std::string> faces =
-    {
-        "img/right.jpg",
-        "img/left.jpg",
-        "img/top.jpg",
-        "img/bottom.jpg",
-        "img/front.jpg",
-        "img/back.jpg"
-    };
 
-    unsigned int cubemap_texture = loadCubemap(faces);
+    glm::vec3 light_pos = glm::vec3(-0.0000001f, 0.0f, 0.0f);
+    float near_plane = 1.0f, far_plane = 25.0f;
 
-    unsigned int skyboxVAO, skyboxVBO;
-    glGenVertexArrays(1, &skyboxVAO);
-    glGenBuffers(1, &skyboxVBO);
-    glBindVertexArray(skyboxVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-    unbindVertexArrays();
+    Model cube1("obj/cube.obj");
+    cube1.setPosition(glm::vec3(4.3f, 4.0f, 4.3f));
+    cube1.setScale(glm::vec3(0.15f));
 
-    glEnable(GL_DEPTH_TEST);
+    Model cube2("obj/cube.obj");
+    cube2.setPosition(glm::vec3(4.30f, 4.60f, 4.30f));
+    cube2.setScale(glm::vec3(0.1f));
 
-    glm::vec3 light_pos = glm::vec3(-0.0000001f, 4.0f, 1.0f);
-    float near_plane = 1.0f, far_plane = 20.5f;
-    
-    Model gun("obj/p226.obj");
-    gun.setPosition(glm::vec3(0.0f, 1.0f, 0.0f));
-    gun.setScale(glm::vec3(3.5f));
-    gun.setColor(glm::vec3(0.5f));
+    Model cube3("obj/cube.obj");
+    cube3.setPosition(glm::vec3(4.20f, 4.10f, 4.20f));
+    cube3.setScale(glm::vec3(0.23f));
 
-    Model cube("obj/cube.obj");
-    cube.setPosition(glm::vec3(0.0f, 1.5f, 0.0f));
-    cube.setScale(glm::vec3(0.1f));
-
-    Model floor("obj/plane.obj");
-    floor.setPosition(glm::vec3(0.0f));
-    floor.setScale(glm::vec3(2.0f, 1.0f, 2.0f));
+    Model cube4("obj/cube.obj");
+    cube4.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+    cube4.setScale(glm::vec3(5.0f));
 
     glm::mat4 model = glm::mat4(1.0f);
     float angle = 0.0f;
     float dx = 0.0f;
     float dz = 0.0f;
-    float radius = 0.2f;
+    float radius = 0.45f;
     
+    float aspect = ((float)SHADOW_WIDTH / (float)SHADOW_HEIGHT);
+    float near_clip = 1.0f;
+    float far_clip = 25.0f;
+    glm::mat4 shadow_proj = glm::perspective(glm::radians(90.0f), aspect, near_clip, far_clip);
+
+    std::vector<glm::mat4> shadow_transforms;
+
+    shadow_transforms.push_back(shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
+    shadow_transforms.push_back(shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(-1.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
+    shadow_transforms.push_back(shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)));
+    shadow_transforms.push_back(shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, -1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f)));
+    shadow_transforms.push_back(shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
+    shadow_transforms.push_back(shadow_proj * glm::lookAt(light_pos, light_pos + glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, -1.0f, 0.0f)));
+
+    
+
+
     // render looping
     while (!glfwWindowShouldClose(window))
     {
@@ -329,8 +330,8 @@ int main() {
         
         dx = cos(angle * (float)M_PI / 180.0f) * radius;
         dz = sin(angle * (float)M_PI / 180.0f) * radius;
-        angle += 0.1f;
-        cube.setPosition(glm::vec3(dx, 1.5f, dz));
+        angle += 0.08f;
+        cube1.setPosition(glm::vec3(4.3f + dx, 4.5f, 4.3f + dz));
         //cube.setScale(glm::vec3(std::abs(dx * 1.2f)));
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -340,14 +341,73 @@ int main() {
         glm::mat4 light_view = glm::lookAt(light_pos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 mat_light = light_proj * light_view;
 
+        //Capture point lights' cube shadow map
+        glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+        glClear(GL_DEPTH_BUFFER_BIT);
         
-        //Capture shadow map
+        shader_depthcube->use();
         glCullFace(GL_FRONT);
+
+        for (unsigned int i = 0; i < 6; ++i) {
+            std::stringstream face_name("mat_shadow[", std::ios_base::ate | std::ios_base::in | std::ios_base::out);
+            face_name << i << "]";
+            //std::cout << face_name.str() << std::endl;
+            shader_depthcube->setMatrix(face_name.str().c_str(), shadow_transforms[i]);
+            face_name.str("");
+        }
+
+        shader_depthcube->setFloat("far_plane", far_plane);
+        shader_depthcube->setVector("lightPos", light_pos);
+
+        shader_depthcube->use();
+        glDisable(GL_CULL_FACE);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, cube4.getPosition());
+        model = glm::scale(model, cube4.getScale());
+        shader_depthcube->setMatrix("mat_model", model);
+        cube4.draw(*shader_depthcube);
+        glEnable(GL_CULL_FACE);
+
+        shader_depthcube->use();
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, cube1.getPosition());
+        model = glm::scale(model, cube1.getScale());
+        shader_depthcube->setMatrix("mat_model", model);
+        cube1.draw(*shader_depthcube);
+
+        shader_depthcube->use();
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, cube2.getPosition());
+        model = glm::scale(model, cube2.getScale());
+        shader_depthcube->setMatrix("mat_model", model);
+        cube2.draw(*shader_depthcube);
+
+        shader_depthcube->use();
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, cube3.getPosition());
+        model = glm::scale(model, cube3.getScale());
+        shader_depthcube->setMatrix("mat_model", model);
+        cube3.draw(*shader_depthcube);
+
+        glCullFace(GL_BACK);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        
+        /*
+        //Capture directional light shadow map
+        glCullFace(GL_FRONT);
+
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
         glClear(GL_DEPTH_BUFFER_BIT);
 
         shader_depth->use();
+
+        shader_depth->setInt("depthMap", 1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depthMapTexture);
+
         shader_depth->setMatrix("mat_light", mat_light);
         model = glm::mat4(1.0f);
         model = glm::translate(model, floor.getPosition());
@@ -372,94 +432,79 @@ int main() {
 
         glCullFace(GL_BACK);
         //scene.renderScene();
-        
+        */
 
         //Set up standard render
-        glBindFramebuffer(GL_FRAMEBUFFER,0);
+            
         
-        
-        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
-        glEnable(GL_DEPTH_TEST);
 
         processInput(window);
 
-        //Skybox render
-
-        glDepthMask(GL_FALSE);
-        shader_skybox->use();
-        shader_skybox->setMatrix("mat_view", glm::mat4(glm::mat3(camera->getView())));
-        shader_skybox->setMatrix("mat_proj", camera->getProjection());
-
-        glBindVertexArray(skyboxVAO);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap_texture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glDepthMask(GL_TRUE);
-        glBindVertexArray(0);
-
         shader_standard->use();
+        shader_standard->setFloat("near_plane", near_plane);
+        shader_standard->setFloat("far_plane", far_plane);
+        shader_standard->setInt("depthMap", 3);
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, depthMapCube);
         shader_standard->setVector("cameraPos", camera->getPosition());
         shader_standard->setMatrix("mat_view", camera->getView());
         shader_standard->setMatrix("mat_proj", camera->getProjection());
-        shader_standard->setMatrix("mat_light", mat_light);
         shader_standard->setVector("lightPos", light_pos);
         shader_standard->setInt("material.diffuse", 0);
         shader_standard->setInt("material.specular", 1);
         shader_standard->setFloat("material.shininess", 256.0f);
         scene.prepareLights("standard");
 
-        shader_standard->setInt("shadowMap", 2);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, depthMapTexture);
+        shader_standard->use();
+        glDisable(GL_CULL_FACE);
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, cube4.getPosition());
+        model = glm::scale(model, cube4.getScale());
+        shader_standard->setInt("reverse_normals", 1);
+        shader_standard->setMatrix("mat_model", model);
+        shader_standard->setInt("has_diffuse", (int)cube4.hasDiffuse());
+        shader_standard->setInt("has_specular", (int)cube4.hasSpecular());
+        shader_standard->setVector("output_color", cube4.getColor());
+        cube4.draw(*shader_standard);
+        shader_standard->setInt("reverse_normals", 0);
+        glEnable(GL_CULL_FACE);
 
         shader_standard->use();
         model = glm::mat4(1.0f);
-        model = glm::translate(model, floor.getPosition());
-        model = glm::scale(model, floor.getScale());
+        model = glm::translate(model, cube1.getPosition());
+        model = glm::scale(model, cube1.getScale());
         shader_standard->setMatrix("mat_model", model);
-        shader_standard->setInt("has_diffuse", (int)floor.hasDiffuse());
-        shader_standard->setInt("has_specular", (int)floor.hasSpecular());
-        shader_standard->setVector("output_color", floor.getColor());
-        floor.draw(*shader_standard);
+        shader_standard->setInt("has_diffuse", (int)cube1.hasDiffuse());
+        shader_standard->setInt("has_specular", (int)cube1.hasSpecular());
+        shader_standard->setVector("output_color", cube1.getColor());
+        cube1.draw(*shader_standard);
 
         shader_standard->use();
         model = glm::mat4(1.0f);
-        model = glm::translate(model, gun.getPosition());
-        model = glm::scale(model, gun.getScale());
+        model = glm::translate(model, cube2.getPosition());
+        model = glm::scale(model, cube2.getScale());
         shader_standard->setMatrix("mat_model", model);
-        shader_standard->setInt("has_diffuse", (int)gun.hasDiffuse());
-        shader_standard->setInt("has_specular", (int)gun.hasSpecular());
-        shader_standard->setVector("output_color", gun.getColor());
-        gun.draw(*shader_standard);
+        shader_standard->setInt("has_diffuse", (int)cube2.hasDiffuse());
+        shader_standard->setInt("has_specular", (int)cube2.hasSpecular());
+        shader_standard->setVector("output_color", cube2.getColor());
+        cube2.draw(*shader_standard);
 
         shader_standard->use();
         model = glm::mat4(1.0f);
-        model = glm::translate(model, cube.getPosition());
-        model = glm::scale(model, cube.getScale());
+        model = glm::translate(model, cube3.getPosition());
+        model = glm::scale(model, cube3.getScale());
         shader_standard->setMatrix("mat_model", model);
-        shader_standard->setInt("has_diffuse", (int)cube.hasDiffuse());
-        shader_standard->setInt("has_specular", (int)cube.hasSpecular());
-        shader_standard->setVector("output_color", cube.getColor());
-        cube.draw(*shader_standard);
+        shader_standard->setInt("has_diffuse", (int)cube3.hasDiffuse());
+        shader_standard->setInt("has_specular", (int)cube3.hasSpecular());
+        shader_standard->setVector("output_color", cube3.getColor());
+        cube3.draw(*shader_standard);
 
         scene.renderScene();
         
         unbindVertexArrays();
-        
-        
-        
-        //Finish standard render
-        //scene.getShader("standard")->use();
-        /*
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, depthMapTexture);
-        scene.renderScene();
-        
-        unbindVertexArrays();
-        */
 
         //Final render to output quad
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -487,6 +532,7 @@ int main() {
     glDeleteFramebuffers(1, &FBO);
     glDeleteFramebuffers(1, &depthMapFBO);
     scene.clearAll();
+    delete shader_depthcube;
 
     glfwTerminate();
     return 0;
